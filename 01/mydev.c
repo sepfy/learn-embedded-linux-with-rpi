@@ -1,0 +1,71 @@
+#include <linux/module.h>
+#include <linux/device.h>
+#include <linux/err.h>
+
+int value = 0;
+
+static ssize_t attr_store(struct device *dev,
+		struct device_attribute *attr,
+		const char *buf, size_t count)
+{
+
+    value = simple_strtoul(buf, NULL, 10);
+    printk("value:%d\n", value);
+    return count;
+}
+
+static ssize_t attr_show(struct device *dev,
+		struct device_attribute *attr,
+		char *buf)
+{
+        int val=0;
+        val=sprintf(buf, "%d\n",value);
+        printk("%d\n", val);
+        return val;
+}
+
+static struct class *mydev_class;
+static struct device *dev;
+
+static DEVICE_ATTR(data, 0644, attr_show, attr_store);
+
+static int __init init_mydev(void)
+{
+	int ret = 0;
+	printk("Init my dev\n");
+	mydev_class = class_create(THIS_MODULE, "mydev_class");
+	if(IS_ERR(mydev_class)) {
+		ret = PTR_ERR(mydev_class);
+		printk(KERN_ALERT "Failed to create class.\n");
+		return ret;
+	}
+
+	dev = device_create(mydev_class, NULL, MKDEV(100,0), NULL, "dev");
+	if(IS_ERR(dev)) {
+		ret = PTR_ERR(dev);
+		printk(KERN_ALERT "Failed to create device.\n");
+		return ret;
+	}
+
+	ret = device_create_file(dev, &dev_attr_data);
+	if(ret < 0) {
+		printk(KERN_ALERT "Failed to create attribute file.\n");
+		return ret;
+	}
+	return ret;
+}
+
+
+static void __exit cleanup_mydev(void)
+{
+	printk("Cleanup my dev\n");
+	device_remove_file(dev, &dev_attr_data);
+	device_destroy(mydev_class, MKDEV(100, 0));
+	class_destroy(mydev_class);
+}
+
+
+module_init(init_mydev);
+module_exit(cleanup_mydev);
+
+MODULE_LICENSE("GPL");
